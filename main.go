@@ -28,7 +28,13 @@ func main() {
 	flag.StringVar(&flagTLSCert, "cert", "", "TLS Client Cert")
 	flag.StringVar(&flagTLSCA, "ca", "", "TLS CA Cert")
 	flag.Parse()
-	siphonNats()
+
+	args := flag.Args()
+	if len(args) == 3 && args[0] == "pub" {
+		pubNats(args[1], args[2])
+	} else {
+		siphonNats()
+	}
 }
 
 func makeTLSConfig() (*tls.Config, error) {
@@ -63,7 +69,7 @@ func makeTLSConfig() (*tls.Config, error) {
 	return c, nil
 }
 
-func siphonNats() {
+func connect() *nats.Conn {
 	var conn *nats.Conn
 	var err error
 
@@ -85,6 +91,25 @@ func siphonNats() {
 		log.Println("could not connect to nats:", err)
 		os.Exit(1)
 	}
+
+	return conn
+}
+
+func pubNats(subject, msg string) {
+	conn := connect()
+	err := conn.Publish(subject, []byte(msg))
+	conn.Close()
+
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	fmt.Println("sent:", subject, msg)
+}
+
+func siphonNats() {
+	conn := connect()
 	defer conn.Close()
 
 	subs := []string{">"}
