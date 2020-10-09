@@ -1,0 +1,57 @@
+name: release
+on:
+  push: {}
+  workflow_dispatch: {}
+  release:
+    types: [published, created, edited, released]
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [linux, darwin, windows]
+        arch: [amd64]
+    steps:
+    - uses: actions/checkout@v2
+    - id: name
+      name: Calculate repo name
+      run: |
+        repo="${{ github.repository }}"
+        echo "::set-output name=repo::${repo##*/}"
+    - uses: actions/setup-go@v2
+    - name: Build Linux
+      run: go build -o ${REPO}-${GOOS}-${GOARCH}
+      env:
+        REPO: ${{ steps.name.outputs.repo }}
+        GOOS: ${{ matrix.os }}
+        GOARCH: ${{ matrix.arch }}
+    - uses: actions/upload-artifact@v2
+      with:
+        path: ${{ steps.name.outputs.repo }}-${{ matrix.os }}-${{ matrix.arch }}
+        name: ${{ steps.name.outputs.repo }}-${{ matrix.os }}-${{ matrix.arch }}
+        if-no-files-found: error
+  release:
+    if: github.event_name == release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/download-artifact@v2
+    - uses: actions/upload-release-asset@v1
+      with:
+        upload_url: ${{ .github.event.upload_url }}
+        asset_path: ${{ steps.name.outputs.repo }}-linux-amd64/${{ steps.name.outputs.repo }}-linux-amd64
+        asset_name: ${{ steps.name.outputs.repo }}-linux-amd64
+        asset_content_type: application/octet-stream
+    - uses: actions/upload-release-asset@v1
+      with:
+        upload_url: ${{ .github.event.upload_url }}
+        asset_path: ${{ steps.name.outputs.repo }}-darwin-amd64/${{ steps.name.outputs.repo }}-darwin-amd64
+        asset_name: ${{ steps.name.outputs.repo }}-darwin-amd64
+        asset_content_type: application/octet-stream
+    - uses: actions/upload-release-asset@v1
+      with:
+        upload_url: ${{ .github.event.upload_url }}
+        asset_path: ${{ steps.name.outputs.repo }}-windows-amd64/${{ steps.name.outputs.repo }}-windows-amd64
+        asset_name: ${{ steps.name.outputs.repo }}-windows-amd64
+        asset_content_type: application/octet-stream
